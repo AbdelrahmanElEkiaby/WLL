@@ -287,7 +287,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 0.8616352, g: 0.105672136, b: 0.105672136, a: 1}
+  m_Color: {r: 0.8627451, g: 0.8593983, b: 0.105882354, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -299,7 +299,7 @@ MonoBehaviour:
   m_PreserveAspect: 0
   m_FillCenter: 1
   m_FillMethod: 0
-  m_FillAmount: 1
+  m_FillAmount: 0
   m_FillClockwise: 1
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
@@ -453,7 +453,7 @@ Rigidbody2D:
   m_Mass: 1
   m_LinearDrag: 0
   m_AngularDrag: 0.05
-  m_GravityScale: 0.2
+  m_GravityScale: 0
   m_Material: {fileID: 0}
   m_IncludeLayers:
     serializedVersion: 2
@@ -571,7 +571,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   detector: {fileID: 5919777767529689387}
-  LoudnessSensiblity: 15
+  soundMeter: {fileID: 5669887228024738814}
+  isStart: 0
+  MeterActive: 0
+  loudnessValue:
+    m_InternalValue: 0
+  LoudnessSensitivity: 100
   threshold: 0.1
 --- !u!114 &2956169433154997710
 MonoBehaviour:
@@ -587,6 +592,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   virtualCamera: {fileID: 1263020843498849862}
   ownerPriority: 15
+  isDead: 0
   PlayerName:
     m_InternalValue:
       utf8LengthInBytes: 0

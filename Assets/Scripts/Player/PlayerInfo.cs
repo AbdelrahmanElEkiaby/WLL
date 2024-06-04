@@ -11,6 +11,8 @@ public class PlayerInfo : NetworkBehaviour
 
     [SerializeField] private int ownerPriority = 15;
 
+    public bool isDead = false;
+
     public NetworkVariable<FixedString32Bytes> PlayerName = new NetworkVariable<FixedString32Bytes>();
 
     public override void OnNetworkSpawn()

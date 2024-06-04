@@ -20,7 +20,7 @@ public class Health : NetworkBehaviour
 
     public void TakeDamage(int damageValue)
     {
-        ModifyHealth(-damageValue);
+        //ModifyHealth(-damageValue);
     }
 
     private void ModifyHealth(int value)
