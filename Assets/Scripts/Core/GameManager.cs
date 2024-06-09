@@ -5,6 +5,7 @@ using Unity.Netcode;
 using TMPro;
 using Unity.Services.Lobbies.Models;
 using System;
+using UnityEngine.UI;
 
 public class GameManager : NetworkBehaviour
 {
@@ -12,10 +13,22 @@ public class GameManager : NetworkBehaviour
 
     public NetworkVariable<float> timer = new NetworkVariable<float>();
     public NetworkVariable<float> CountDowntimer = new NetworkVariable<float>();
+
     [SerializeField] private TMP_Text timerText;
     [SerializeField] private TMP_Text CountDownTimerText;
     [SerializeField] GameObject EndingHUD;
     [SerializeField] private TMP_Text EndingText;
+    [SerializeField] private GameObject OverTimeHUD;
+    [SerializeField] private Image Player1Meter;
+    [SerializeField] private Image Player2Meter;
+    [SerializeField] BackgroundController BgController;
+    [SerializeField] ObstacleMovement obstacle;
+    
+    private float Player1Total;
+    private float Player2Total;
+    private ulong player1; // Host
+    private ulong player2; // First client
+
     private bool OnStart = false;
     private bool CountDownStart;
 
@@ -38,17 +51,16 @@ public class GameManager : NetworkBehaviour
     {
         if (IsServer)
         {
-            timer.Value = 60;
+            player1 = NetworkManager.Singleton.LocalClientId; // Host is player1
+            Debug.Log($"Player 1 (Host) ID: {player1}");
+
+            timer.Value = 0;
             CountDowntimer.Value = 6;
-            //timerText.gameObject.SetActive(false);
         }
-        if (IsServer)
+        if (NetworkManager.Singleton != null)
         {
-            if (NetworkManager.Singleton != null)
-            {
-                NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnected;
-                NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnected;
-            }
+            NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnected;
+            NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnected;
         }
     }
 
@@ -56,12 +68,13 @@ public class GameManager : NetworkBehaviour
     {
         if (!IsServer) return;
 
-        // Increment the number of connected players
         playersConnected++;
 
-        // Check if a certain number of players are connected
         if (playersConnected == 1)
         {
+            player2 = clientId; // First connected client is player2
+            Debug.Log($"Player 2 (Client) ID: {player2}");
+
             CountDownStart = true;
             OnStart = true;
             SetCountDownTimerActiveClientRpc(true);
@@ -72,8 +85,14 @@ public class GameManager : NetworkBehaviour
     {
         if (!IsServer) return;
 
-        // Decrement the number of connected players
         playersConnected--;
+
+        if (clientId == player2)
+        {
+            player2 = ulong.MaxValue;
+            Debug.Log("Player 2 disconnected");
+        }
+
         if (playersConnected == 0)
         {
             OnStart = false;
@@ -83,11 +102,11 @@ public class GameManager : NetworkBehaviour
 
     void Update()
     {
-        if (!IsServer) { return; }
+        if (!IsServer) return;
 
         if (CountDownStart)
         {
-            if((int)CountDowntimer.Value == 2)
+            if ((int)CountDowntimer.Value == 2)
             {
                 ChangeTextColorClientRpc();
             }
@@ -106,18 +125,56 @@ public class GameManager : NetworkBehaviour
         }
         if (OnStart && !CountDownStart)
         {
-            if((int)timer.Value == 55)
+            if ((int)timer.Value == 10)
             {
+                //ActivateMeter();
                 ActivateScoreCalcClientRpc();
+                ActivateOverTimeBackgroundClientRpc();
+                ObstacleMoveClientRpc(true, 1);
+
             }
-            else if((int)timer.Value == 50)
+            else if ((int)timer.Value == 15)
             {
                 DeactivateScoreCalcClientRpc();
+                ActivateMainBackgroundClientRpc();
+                
+                //DetermineWinner();
             }
-            timer.Value -= Time.deltaTime;
+            else if((int)timer.Value == 20)
+            {
+                ActivateScoreCalcClientRpc();
+                ObstacleMoveClientRpc(true, 2);
+            }
+            else if((int)timer.Value == 25)
+            {
+                ObstacleMoveClientRpc(false, 0);
+                DeactivateScoreCalcClientRpc();
+            }
+            if ((int)timer.Value < 30 && (int)timer.Value > 20)
+            {
+                //ScreamMeterFillClientRpc();
+            }
+            timer.Value += Time.deltaTime;
             UpdateTimerDisplay();
             UpdateTimerClientRpc();
         }
+    }
+
+    [ClientRpc]
+    private void ObstacleMoveClientRpc(bool flag, int num)
+    {
+        obstacle.Move(flag, num);
+    }
+
+    private void ActivateMeter()
+    {
+        ActivateMeterClientRpc();
+    }
+
+    [ClientRpc]
+    void ActivateMeterClientRpc()
+    {
+        OverTimeHUD.gameObject.SetActive(true);
     }
 
     [ClientRpc]
@@ -152,13 +209,64 @@ public class GameManager : NetworkBehaviour
 
     public override void OnNetworkSpawn()
     {
-        if (!IsServer) { return; }
+        if (!IsServer) return;
     }
 
     public override void OnNetworkDespawn()
     {
-        NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnected;
-        NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnected;
+        if (NetworkManager.Singleton != null)
+        {
+            NetworkManager.Singleton.OnClientConnectedCallback -= OnClientConnected;
+            NetworkManager.Singleton.OnClientDisconnectCallback -= OnClientDisconnected;
+        }
+    }
+
+    [ClientRpc]
+    private void ActivateMainBackgroundClientRpc()
+    {
+        BgController.ActivateMainBG();
+       
+    }
+
+    [ClientRpc]
+    private void ActivateOverTimeBackgroundClientRpc()
+    {
+        BgController.ActivatOverTimeBG();
+       
+    }
+
+    [ClientRpc]
+    private void UpdateTimerClientRpc()
+    {
+        UpdateTimerDisplay();
+    }
+
+    private void UpdateTimerDisplay()
+    {
+        float minutes = Mathf.FloorToInt(timer.Value / 60);
+        float seconds = Mathf.FloorToInt(timer.Value % 60);
+        timerText.text = string.Format("{0:00}:{1:00}", minutes, seconds);
+    }
+
+    private void DetermineWinner()
+    {
+        if (!IsServer) return;
+
+        ulong winnerId;
+        if (Player1Total > Player2Total)
+        {
+            winnerId = player1;
+        }
+        else
+        {
+            winnerId = player2;
+        }
+
+        UserData userData = HostSingleton.Instance.GameManger.networkServer.GetUserDataByClientId(winnerId);
+        string winner = userData.userName;
+        StopGame();
+        OnStart = false;
+        DisplayWinnerClientRpc(winner);
     }
 
     public void OnPlayerDied(ulong playerId)
@@ -167,13 +275,16 @@ public class GameManager : NetworkBehaviour
         ulong winnerId = GetWinner(playerId);
         UserData userData = HostSingleton.Instance.GameManger.networkServer.GetUserDataByClientId(winnerId);
         string winner = userData.userName;
-        DisplayWinnerClientRpc(winner);
         StopGame();
+        ObstacleMoveClientRpc(false, 0);
         OnStart = false;
+        DisplayWinnerClientRpc(winner);
     }
 
     private ulong GetWinner(ulong deadPlayerId)
     {
+        if (!IsServer) return ulong.MaxValue;
+
         foreach (var client in NetworkManager.Singleton.ConnectedClients)
         {
             if (client.Key != deadPlayerId)
@@ -191,21 +302,10 @@ public class GameManager : NetworkBehaviour
         EndingText.text = $"{winner} won";
     }
 
-    [ClientRpc]
-    private void UpdateTimerClientRpc()
-    {
-        UpdateTimerDisplay();
-    }
-
-    private void UpdateTimerDisplay()
-    {
-        float minutes = Mathf.FloorToInt(timer.Value / 60);
-        float seconds = Mathf.FloorToInt(timer.Value % 60);
-        timerText.text = string.Format("{0:00}:{1:00}", minutes, seconds);
-    }
-
     private void StartGame()
     {
+        if (!IsServer) return;
+
         foreach (var client in NetworkManager.Singleton.ConnectedClients)
         {
             StartGameClientRpc(client.Key);
@@ -214,43 +314,11 @@ public class GameManager : NetworkBehaviour
 
     private void StopGame()
     {
+        if (!IsServer) return;
+
         foreach (var client in NetworkManager.Singleton.ConnectedClients)
         {
             StopGameClientRpc(client.Key);
-        }
-    }
-
-    private void ActivateMeter()
-    {
-        ActivateMeterClientRpc();
-    }
-
-    private void DeactivateMeter()
-    {
-        DeactivateMeterClientRpc();
-    }
-
-    [ClientRpc]
-    private void ActivateMeterClientRpc()
-    {
-        foreach (var client in NetworkManager.Singleton.ConnectedClients)
-        {
-            if (client.Value.PlayerObject.TryGetComponent(out ScaleFromMicrophone playerScript))
-            {
-                playerScript.ActivateMeter();
-            }
-        }
-    }
-
-    [ClientRpc]
-    private void DeactivateMeterClientRpc()
-    {
-        foreach (var client in NetworkManager.Singleton.ConnectedClients)
-        {
-            if (client.Value.PlayerObject.TryGetComponent(out ScaleFromMicrophone playerScript))
-            {
-                playerScript.DeactivateMeter();
-            }
         }
     }
 
@@ -281,6 +349,8 @@ public class GameManager : NetworkBehaviour
     [ClientRpc]
     private void ActivateScoreCalcClientRpc()
     {
+        if (!IsServer) return;
+
         foreach (var client in NetworkManager.Singleton.ConnectedClients)
         {
             if (client.Value.PlayerObject.TryGetComponent(out ScaleFromMicrophone playerScript))
@@ -293,6 +363,8 @@ public class GameManager : NetworkBehaviour
     [ClientRpc]
     private void DeactivateScoreCalcClientRpc()
     {
+        if (!IsServer) return;
+
         foreach (var client in NetworkManager.Singleton.ConnectedClients)
         {
             if (client.Value.PlayerObject.TryGetComponent(out ScaleFromMicrophone playerScript))
@@ -301,9 +373,50 @@ public class GameManager : NetworkBehaviour
             }
         }
     }
+
+    [ClientRpc]
+    private void ScreamMeterFillClientRpc()
+    {
+        if (!IsServer) return;
+
+        foreach (var client in NetworkManager.Singleton.ConnectedClients)
+        {
+            if (client.Value.PlayerObject.TryGetComponent(out ScaleFromMicrophone playerScript))
+            {
+                float temp = playerScript.TotalScreamScore.Value;
+                Debug.Log($"Client {client.Key} Temp Value: {temp}");
+
+                if (client.Key == player1)
+                {
+                    Player1Total += temp;
+                    Debug.Log($"Player1Total: {Player1Total}");
+                    UpdatePlayerMeterClientRpc(player1, temp/100);
+                }
+                else if (client.Key == player2)
+                {
+                    Player2Total += temp;
+                    Debug.Log($"Player2Total: {Player2Total}");
+                    UpdatePlayerMeterClientRpc(player2, temp/100);
+                }
+            }
+        }
+    }
+
+    [ClientRpc]
+    private void UpdatePlayerMeterClientRpc(ulong playerId, float fillAmount)
+    {
+        if (playerId == player1)
+        {
+            Player1Meter.fillAmount = fillAmount;
+            Debug.Log($"Player1Meter updated to: {fillAmount}");
+        }
+        else if (playerId == player2)
+        {
+            Player2Meter.fillAmount = fillAmount;
+            Debug.Log($"Player2Meter updated to: {fillAmount}");
+        }
+    }
 }
-
-
 
 
 

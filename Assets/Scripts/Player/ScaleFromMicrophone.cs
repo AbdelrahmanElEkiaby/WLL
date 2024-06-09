@@ -2,31 +2,40 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Unity.Netcode;
-using UnityEngine.UI;
 using TMPro;
+using Unity.Netcode.Components;
 
 public class ScaleFromMicrophone : NetworkBehaviour
 {
     [SerializeField] AudioLoudnessDetector detector;
-    [SerializeField] Image soundMeter;
-    [SerializeField] TMP_Text ScreamTotalText;
+    [SerializeField] NetworkedAnimatorBoolController AnimatorController;
     Rigidbody2D rb;
     public bool isStart = false;
 
-
     public NetworkVariable<float> TotalScreamScore = new NetworkVariable<float>(0f, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
-    public NetworkVariable<bool> MeterActive = new NetworkVariable<bool>(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
-    public NetworkVariable<float> loudnessValue = new NetworkVariable<float>(0f, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
     public NetworkVariable<bool> CounterActive = new NetworkVariable<bool>(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+    public NetworkVariable<float> loudnessValue = new NetworkVariable<float>(0f, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+    public NetworkVariable<bool> IsPanic = new NetworkVariable<bool>(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
 
     public float LoudnessSensitivity = 100f;
     public float threshold = 0.1f;
     private float gravity = 0.05f;
+    
+    
+
+    public override void OnNetworkSpawn()
+    {
+        if (!IsOwner) return;
+    }
+
+    public override void OnNetworkDespawn()
+    {
+        if (!IsOwner) return;
+    }
 
     private void Start()
     {
         rb = GetComponent<Rigidbody2D>();
-        soundMeter.fillAmount = 0;  // Initialize the sound meter fill amount to 0
     }
 
     private void FixedUpdate()
@@ -36,32 +45,42 @@ public class ScaleFromMicrophone : NetworkBehaviour
 
         float loudness = detector.GetLoudnessFromMicrophone() * LoudnessSensitivity * threshold;
         loudnessValue.Value = loudness;  // Update the network variable
-        
-        if(MeterActive.Value == true)
+
+        if (CounterActive.Value)
         {
-            TotalScreamScore.Value += loudness;
-            DisplayScreamScoreClientRpc();
+           
+            AnimatorController.SetBoolParameterServerRpc("IsPanicing", true);
+            //CalcScreamTot(loudness);
+            //Debug.Log($"Player {NetworkManager.Singleton.LocalClientId} Scream Score: {TotalScreamScore.Value}");
+        }
+        else
+        {
+            
+            AnimatorController.SetBoolParameterServerRpc("IsPanicing", false);
         }
 
         Vector2 playerVelocity = new Vector2(rb.velocity.x, rb.velocity.y + loudness - gravity);
         rb.velocity = playerVelocity;
+        
     }
 
-    private void Update()
+    private void CalcScreamTot(float loudness)
     {
-        //if (MeterActive.Value)
-        //{
-        //    soundMeter.fillAmount = loudnessValue.Value;  // Update the UI for all clients when MeterActive is true
-        //}
-        //else
-        //{
-        //    soundMeter.fillAmount = 0;  // Ensure the meter is set to 0 when MeterActive is false
-        //}
+        TotalScreamScore.Value += loudness;
+        UpdateScreamScoreServerRpc(TotalScreamScore.Value);
+    }
+
+    [ServerRpc]
+    private void UpdateScreamScoreServerRpc(float newScore)
+    {
+        TotalScreamScore.Value = newScore;
+        Debug.Log($"Server updated TotalScreamScore to: {TotalScreamScore.Value}");
     }
 
     public void StartMovement()
     {
         isStart = true;
+    
     }
 
     public void StopMovement()
@@ -71,71 +90,33 @@ public class ScaleFromMicrophone : NetworkBehaviour
         gravity = 0;
     }
 
-    public void ActivateMeter()
-    {
-        if (IsOwner)
-        {
-            MeterActive.Value = true;
-            ActivateMeterClientRpc();
-        }
-    }
-
-    public void DeactivateMeter()
-    {
-        if (IsOwner)
-        {
-            MeterActive.Value = false;
-            DeactivateMeterClientRpc();
-        }
-    }
-
-    [ClientRpc]
-    private void ActivateMeterClientRpc()
-    {
-        if (!IsOwner)
-        {
-            MeterActive.Value = true;
-        }
-    }
-
-    [ClientRpc]
-    private void DeactivateMeterClientRpc()
-    {
-        if (!IsOwner)
-        {
-            MeterActive.Value = false;
-        }
-        soundMeter.fillAmount = 0;
-    }
-
     public void ActivateCounter()
     {
         if (!IsOwner) return;
-        ActivateCounterClientRpc();
+        ActivateCounterServerRpc();
+        
     }
 
     public void DeactivateCounter()
     {
         if (!IsOwner) return;
-        DeactivateCounterClientRpc();
+        DeactivateCounterServerRpc();
+        
+
     }
 
-    [ClientRpc]
-    private void ActivateCounterClientRpc()
+    [ServerRpc]
+    private void ActivateCounterServerRpc(ServerRpcParams rpcParams = default)
     {
         CounterActive.Value = true;
-        ScreamTotalText.gameObject.SetActive(true);
+        
     }
 
-    [ClientRpc]
-    private void DeactivateCounterClientRpc()
+    [ServerRpc]
+    private void DeactivateCounterServerRpc(ServerRpcParams rpcParams = default)
     {
-        CounterActive.Value = false ;
-    }
-
-    [ClientRpc]
-    private void DisplayScreamScoreClientRpc()
-    {
-        ScreamTotalText.text = $"{TotalScreamScore.Value}";
+        CounterActive.Value = false;
     }
 }
+
+
