@@ -49,14 +49,14 @@ public class ScaleFromMicrophone : NetworkBehaviour
         if (CounterActive.Value)
         {
            
-            AnimatorController.SetBoolParameterServerRpc("IsPanicing", true);
+            
             //CalcScreamTot(loudness);
             //Debug.Log($"Player {NetworkManager.Singleton.LocalClientId} Scream Score: {TotalScreamScore.Value}");
         }
         else
         {
             
-            AnimatorController.SetBoolParameterServerRpc("IsPanicing", false);
+            
         }
 
         Vector2 playerVelocity = new Vector2(rb.velocity.x, rb.velocity.y + loudness - gravity);
@@ -70,7 +70,7 @@ public class ScaleFromMicrophone : NetworkBehaviour
         UpdateScreamScoreServerRpc(TotalScreamScore.Value);
     }
 
-    [ServerRpc]
+    [ServerRpc(RequireOwnership = false)]
     private void UpdateScreamScoreServerRpc(float newScore)
     {
         TotalScreamScore.Value = newScore;
@@ -93,7 +93,8 @@ public class ScaleFromMicrophone : NetworkBehaviour
     public void ActivateCounter()
     {
         if (!IsOwner) return;
-        ActivateCounterServerRpc();
+        ActivateCounterClientRpc();
+        Debug.LogError("Activated" + NetworkManager.LocalClientId);
         
     }
 
@@ -105,17 +106,20 @@ public class ScaleFromMicrophone : NetworkBehaviour
 
     }
 
-    [ServerRpc]
-    private void ActivateCounterServerRpc(ServerRpcParams rpcParams = default)
+    [ClientRpc]
+    private void ActivateCounterClientRpc()
     {
+        //if (!IsOwner) return;
+        Debug.LogError("called" + NetworkManager.LocalClientId);
         CounterActive.Value = true;
-        
+        AnimatorController.SetBoolParameterServerRpc("IsPanicing", true);
     }
 
-    [ServerRpc]
+    [ServerRpc(RequireOwnership = false)]
     private void DeactivateCounterServerRpc(ServerRpcParams rpcParams = default)
     {
         CounterActive.Value = false;
+        AnimatorController.SetBoolParameterClientRpc("IsPanicing", false);
     }
 }
 

@@ -10,7 +10,7 @@ public class NetworkedAnimatorBoolController : NetworkBehaviour
         animator = GetComponent<Animator>();
     }
 
-    [ServerRpc]
+    [ServerRpc(RequireOwnership = false)]
     public void SetBoolParameterServerRpc(string parameterName, bool value)
     {
         SetBoolParameterClientRpc(parameterName, value);
@@ -25,7 +25,7 @@ public class NetworkedAnimatorBoolController : NetworkBehaviour
         }
     }
 
-    [ServerRpc]
+    [ServerRpc(RequireOwnership = false)]
     public void TriggerTransitionToPanicServerRpc()
     {
         TriggerTransitionToPanicClientRpc();
@@ -40,7 +40,7 @@ public class NetworkedAnimatorBoolController : NetworkBehaviour
         }
     }
 
-    [ServerRpc]
+    [ServerRpc(RequireOwnership = false)]
     public void ResetTriggerServerRpc()
     {
         ResetTriggerClientRpc();

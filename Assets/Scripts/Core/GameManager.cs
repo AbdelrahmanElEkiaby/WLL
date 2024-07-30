@@ -31,6 +31,7 @@ public class GameManager : NetworkBehaviour
 
     private bool OnStart = false;
     private bool CountDownStart;
+    private bool OverTime = false;
 
     private int playersConnected;
 
@@ -125,34 +126,50 @@ public class GameManager : NetworkBehaviour
         }
         if (OnStart && !CountDownStart)
         {
-            if ((int)timer.Value == 10)
+            if ((int)timer.Value == 0)
             {
-                //ActivateMeter();
-                ActivateScoreCalcClientRpc();
                 ActivateOverTimeBackgroundClientRpc();
-                ObstacleMoveClientRpc(true, 1);
+                OverTime = true;
+                OverTimeHUD.SetActive(true);
+                //ObstacleMoveClientRpc(true, 1);
+                //ActivatePanic();
 
             }
-            else if ((int)timer.Value == 15)
+            else if ((int)timer.Value == 5)
             {
-                DeactivateScoreCalcClientRpc();
-                ActivateMainBackgroundClientRpc();
-                
+                //DeactivateScoreCalcClientRpc();
+                //ObstacleMoveClientRpc(false, 0);
+                //ActivateMainBackgroundClientRpc();
+                //DeactivatePanic();
                 //DetermineWinner();
+            }
+            else if((int)timer.Value == 15)
+            {
+                ActivatePanic();
+                //ActivateScoreCalcClientRpc();
+                //ObstacleMoveClientRpc(true, 2);
+                DetermineWinner();
             }
             else if((int)timer.Value == 20)
             {
-                ActivateScoreCalcClientRpc();
-                ObstacleMoveClientRpc(true, 2);
-            }
-            else if((int)timer.Value == 25)
-            {
+                DeactivatePanic();
                 ObstacleMoveClientRpc(false, 0);
-                DeactivateScoreCalcClientRpc();
+                //DeactivateScoreCalcClientRpc();
             }
-            if ((int)timer.Value < 30 && (int)timer.Value > 20)
+            else if ((int)timer.Value == 30)
             {
                 //ScreamMeterFillClientRpc();
+                ActivateOverTimeBackgroundClientRpc();
+            }
+            else if((int)timer.Value == 40)
+            {
+                ActivateMainBackgroundClientRpc();
+                StopGame();
+            }
+
+            if(OverTime)
+            {
+                ActivateOverTimeMeter();
             }
             timer.Value += Time.deltaTime;
             UpdateTimerDisplay();
@@ -334,6 +351,48 @@ public class GameManager : NetworkBehaviour
         }
     }
 
+    private void ActivateOverTimeMeter()
+    {
+        int f = 0;
+        foreach (var client in NetworkManager.Singleton.ConnectedClients)
+        {
+            ActivateOverTimeMeterServerRpc(client.Key,f);
+            Debug.Log(client.Key + " test");
+            f++;
+            
+        }
+    }
+    [ServerRpc]
+    private void ActivateOverTimeMeterServerRpc(ulong clientId, int flag)
+    {
+        float num = 0f;
+        if (NetworkManager.Singleton.LocalClientId == clientId)
+        {
+            var playerObject = NetworkManager.Singleton.LocalClient.PlayerObject;
+            if (playerObject != null)
+            {
+                AudioLoudnessDetector SoundNum = playerObject.GetComponentInChildren<AudioLoudnessDetector>();
+                num = SoundNum.GetLoudnessFromMicrophone() * 100f * 0.1f;
+                Debug.Log(clientId + $" {num}");
+                ActivateOverTimeMeterClientRpc(num, flag);
+            }
+
+        }
+    }
+
+    [ClientRpc]
+    private void ActivateOverTimeMeterClientRpc(float num,int flag)
+    {
+        if(flag == 0)
+        {
+            Player1Meter.fillAmount = num;
+        }
+        else
+        {
+            Player2Meter.fillAmount = num;
+        }
+    }
+
     [ClientRpc]
     private void StartGameClientRpc(ulong clientId)
     {
@@ -345,32 +404,52 @@ public class GameManager : NetworkBehaviour
             }
         }
     }
-
-    [ClientRpc]
-    private void ActivateScoreCalcClientRpc()
+    private void ActivatePanic()
     {
-        if (!IsServer) return;
-
         foreach (var client in NetworkManager.Singleton.ConnectedClients)
         {
-            if (client.Value.PlayerObject.TryGetComponent(out ScaleFromMicrophone playerScript))
-            {
-                playerScript.ActivateCounter();
-            }
+            //Debug.LogWarning(client.Key + " ActivateFunc");
+            ActivatePanicClientRpc(client.Key);
+        }
+    }
+
+    private void DeactivatePanic()
+    {
+        foreach (var client in NetworkManager.Singleton.ConnectedClients)
+        {
+            //Debug.LogWarning(client.Key + " ActivateFunc");
+            DeactivatePanicClientRpc(client.Key);
         }
     }
 
     [ClientRpc]
-    private void DeactivateScoreCalcClientRpc()
+    private void ActivatePanicClientRpc(ulong clientId)
     {
-        if (!IsServer) return;
-
-        foreach (var client in NetworkManager.Singleton.ConnectedClients)
+        
+        if (NetworkManager.Singleton.LocalClientId == clientId)
         {
-            if (client.Value.PlayerObject.TryGetComponent(out ScaleFromMicrophone playerScript))
+            var playerObject = NetworkManager.Singleton.LocalClient.PlayerObject;
+            if(playerObject != null)
             {
-                playerScript.DeactivateCounter();
+                NetworkedAnimatorBoolController playerScript = playerObject.GetComponentInChildren<NetworkedAnimatorBoolController>();
+                playerScript.SetBoolParameterServerRpc("IsPanicing", true);
             }
+            
+        }
+    }
+
+    [ClientRpc]
+    private void DeactivatePanicClientRpc(ulong clientId)
+    {
+        if (NetworkManager.Singleton.LocalClientId == clientId)
+        {
+            var playerObject = NetworkManager.Singleton.LocalClient.PlayerObject;
+            if (playerObject != null)
+            {
+                NetworkedAnimatorBoolController playerScript = playerObject.GetComponentInChildren<NetworkedAnimatorBoolController>();
+                playerScript.SetBoolParameterServerRpc("IsPanicing", false);
+            }
+
         }
     }
 

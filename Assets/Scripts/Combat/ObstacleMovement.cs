@@ -12,7 +12,7 @@ public class ObstacleMovement : NetworkBehaviour
     void Start()
     {
         // Define the amount of change in scale
-        scaleChange = new Vector3(0f, 0.05f, 0f);
+        scaleChange = new Vector3(0f, 0.015f, 0f);
         // Define the amount of change in position
         //positionChange = new Vector3(0f, 0.001f, 0f);
     }
@@ -26,8 +26,8 @@ public class ObstacleMovement : NetworkBehaviour
         {
             if (this.transform.position.y <= -2.5f)
             {
-                this.transform.position += new Vector3(0, scaleChange.y / 2, 0);
-                this.transform.localScale += scaleChange;
+                this.transform.position += new Vector3(0, scaleChange.y, 0);
+                //this.transform.localScale += scaleChange;
             }
             else
             {
@@ -37,9 +37,9 @@ public class ObstacleMovement : NetworkBehaviour
         }
         else if(isMove && MoveDir == 2)
         {
-            if (this.transform.position.y >= -4.5f)
+            if (this.transform.position.y >= -6.6f)
             {
-                this.transform.position -= new Vector3(0, scaleChange.y / 2, 0);
+                this.transform.position -= new Vector3(0, scaleChange.y, 0);
                 this.transform.localScale -= scaleChange;
             }
             else

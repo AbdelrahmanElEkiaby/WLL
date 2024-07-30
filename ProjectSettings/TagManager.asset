@@ -7,6 +7,7 @@ TagManager:
   - Wall
   - Fan
   - Obstacle
+  - water
   layers:
   - Default
   - TransparentFX
@@ -49,6 +50,9 @@ TagManager:
     locked: 0
   - name: player
     uniqueID: 2039317693
+    locked: 0
+  - name: water
+    uniqueID: 680261501
     locked: 0
   - name: fan
     uniqueID: 1750063325
