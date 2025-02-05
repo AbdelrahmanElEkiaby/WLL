@@ -35,6 +35,7 @@ public class GameManager : NetworkBehaviour
 
     private int playersConnected;
     int x = 0;
+    int y = 0;
 
     private void Awake()
     {
