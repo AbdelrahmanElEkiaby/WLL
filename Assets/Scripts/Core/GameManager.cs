@@ -34,8 +34,7 @@ public class GameManager : NetworkBehaviour
     private bool OverTime = false;
 
     private int playersConnected;
-    int x = 0;
-    int y = 0;
+    
 
     private void Awake()
     {
